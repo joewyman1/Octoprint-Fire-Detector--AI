@@ -1,6 +1,13 @@
 {{ bind("webcam_url", "text", _("Webcam URL"), _("URL of the webcam snapshot"), values|default(""), required=true) }}
-{{ bind("smtp_server", "text", _("SMTP Server"), _("SMTP server for sending emails"), values|default(""), required=true) }}
-{{ bind("smtp_port", "integer", _("SMTP Port"), _("Port number of SMTP server"), values|default(""), required=true) }}
-{{ bind("smtp_username", "text", _("SMTP Username"), _("Username for SMTP authentication"), values|default(""), required=true) }}
-{{ bind("smtp_password", "password", _("SMTP Password"), _("Password for SMTP authentication"), values|default(""), required=true) }}
-{{ bind("recipient_email", "text", _("Recipient Email"), _("Email address to receive notifications"), values|default(""), required=true) }}
+{{ bind("pushbullet_api_key", "text", _("Pushbullet API Key"), _("API key for Pushbullet integration"), values|default(""), required=true) }}
+{{ bind("threshold_sensitivity", "float", _("Threshold Sensitivity"), _("Sensitivity threshold for fire detection (0.0 - 1.0)"), values|default(0.5), min=0.0, max=1.0) }}
+
+<!-- Donation Link -->
+<div class="form-group">
+    <label class="control-label col-xs-3">{{ _("Support the Creator") }}</label>
+    <div class="col-xs-9">
+        <p class="form-control-static">
+            <a href="https://www.paypal.com/paypalme/joewyman" target="_blank">{{ _("Donate") }}</a>
+        </p>
+    </div>
+</div>
