@@ -1,0 +1,6 @@
+{{ bind("webcam_url", "text", _("Webcam URL"), _("URL of the webcam snapshot"), values|default(""), required=true) }}
+{{ bind("smtp_server", "text", _("SMTP Server"), _("SMTP server for sending emails"), values|default(""), required=true) }}
+{{ bind("smtp_port", "integer", _("SMTP Port"), _("Port number of SMTP server"), values|default(""), required=true) }}
+{{ bind("smtp_username", "text", _("SMTP Username"), _("Username for SMTP authentication"), values|default(""), required=true) }}
+{{ bind("smtp_password", "password", _("SMTP Password"), _("Password for SMTP authentication"), values|default(""), required=true) }}
+{{ bind("recipient_email", "text", _("Recipient Email"), _("Email address to receive notifications"), values|default(""), required=true) }}
