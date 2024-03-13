@@ -1,64 +1,105 @@
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import cv2
+import numpy as np
+import requests
+from octoprint.events import Events
 from octoprint.settings import settings
 from octoprint.plugin import OctoPrintPlugin
 
+def detect_fire(image):
+    if image is None:
+        return False
+
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(gray, (21, 21), 0)
+    _, thresh = cv2.threshold(blurred, 200, 255, cv2.THRESH_BINARY)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    return bool(contours)
+
 class FireDetectionPlugin(OctoPrintPlugin):
+    def __init__(self):
+        self.printing = False
+        self.heaters_on = False
+
+    def on_after_startup(self):
+        self._logger.info("Fire Detection plugin initialized.")
+
     def on_settings_initialized(self):
         self._settings.set_defaults({
             "webcam_url": "",
-            "smtp_server": "",
-            "smtp_port": 0,
-            "smtp_username": "",
-            "smtp_password": "",
-            "recipient_email": ""
+            "pushbullet_api_key": "",
+            "threshold_sensitivity": 0.5
         })
 
     def get_settings_defaults(self):
         return dict(
             webcam_url="",
-            smtp_server="",
-            smtp_port=0,
-            smtp_username="",
-            smtp_password="",
-            recipient_email=""
+            pushbullet_api_key="",
+            threshold_sensitivity=0.5
         )
 
     def get_template_configs(self):
         return [
-            dict(type="settings", custom_bindings=False)
+            dict(type="settings", custom_bindings=True)
         ]
 
-    def send_email_notification(self, message):
-        smtp_server = self._settings.get(["smtp_server"])
-        smtp_port = self._settings.get_int(["smtp_port"])
-        smtp_username = self._settings.get(["smtp_username"])
-        smtp_password = self._settings.get(["smtp_password"])
-        recipient_email = self._settings.get(["recipient_email"])
+    def send_notification(self, is_fire_detected, percentage_sure):
+        pushbullet_api_key = self._settings.get(["pushbullet_api_key"])
 
-        if not all([smtp_server, smtp_port, smtp_username, smtp_password, recipient_email]):
-            self._logger.error("SMTP settings are incomplete, cannot send email notification.")
+        threshold_sensitivity = self._settings.get_float(["threshold_sensitivity"])
+
+        if not pushbullet_api_key:
+            self._logger.error("Pushbullet API key must be provided.")
             return
 
-        msg = MIMEMultipart()
-        msg['From'] = smtp_username
-        msg['To'] = recipient_email
-        msg['Subject'] = "Fire Detected!"
+        if is_fire_detected and percentage_sure >= threshold_sensitivity:
+            title = "Fire Detected!"
+            body = f"Fire detected with {percentage_sure:.2f}% confidence."
+            url = "https://api.pushbullet.com/v2/pushes"
+            headers = {
+                "Access-Token": pushbullet_api_key,
+                "Content-Type": "application/json"
+            }
+            data = {
+                "type": "note",
+                "title": title,
+                "body": body
+            }
+            try:
+                response = requests.post(url, headers=headers, json=data)
+                response.raise_for_status()
+                self._logger.info("Notification sent successfully via Pushbullet.")
+            except Exception as e:
+                self._logger.error("Error sending notification via Pushbullet: %s" % str(e))
+        else:
+            self._logger.info("No fire detected or confidence below threshold.")
 
-        msg.attach(MIMEText(message, 'plain'))
+    def pause_print(self):
+        self._printer.pause_print(reason="Fire detected!")
 
-        try:
-            server = smtplib.SMTP(smtp_server, smtp_port)
-            server.starttls()
-            server.login(smtp_username, smtp_password)
-            server.sendmail(smtp_username, recipient_email, msg.as_string())
-            server.quit()
-            self._logger.info("Email notification sent successfully.")
-        except Exception as e:
-            self._logger.error("Error sending email notification: %s" % str(e))
+    def on_event(self, event, payload):
+        if event == Events.PRINT_STARTED:
+            self.printing = True
+        elif event == Events.PRINT_DONE or event == Events.PRINT_FAILED or event == Events.PRINT_CANCELLED:
+            self.printing = False
+        elif event == Events.CONNECTED:
+            self.heaters_on = payload.get("state", {}).get("temperature", {}).get("tool0", {}).get("target", 0) > 0
+        elif event == Events.DISCONNECTED:
+            self.heaters_on = False
 
-__plugin_name__ = "Fire Detection"
+        if self.printing or self.heaters_on:
+            webcam_url = self._settings.get(["webcam_url"])
+            if webcam_url:
+                response = requests.get(webcam_url, stream=True)
+                if response.status_code == 200:
+                    image = np.asarray(bytearray(response.content), dtype="uint8")
+                    image = cv2.imdecode(image, cv2.IMREAD_COLOR)
+                    is_fire_detected = detect_fire(image)
+                    self.send_notification(is_fire_detected, 0.7)
+                    if is_fire_detected:
+                        self.pause_print()
+                
+__plugin_name__ = "Fire Detector AI"
 __plugin_pythoncompat__ = ">=3,<4"
 __plugin_version__ = "0.1.0"
 
