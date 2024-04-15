@@ -4,9 +4,9 @@
 
 
 
-A octoprint plugin that watches  the webcam's snapshots, and alerts the user if a fire is detected. 
+An Octoprint plugin that watches  the webcam's snapshots, and alerts the user if a fire is detected. 
 
-With anything hot and electrical, it is a fire hazzard to run it unattended. Unfortunatley for longer prints, this is unavoidable. That's where our plugin comes in. 
+With anything hot and electrical, it is a fire hazard to run it unattended. And Unfortunately for longer prints, this is unavoidable. That's where our plugin comes in. 
 
 
 ## Authors
